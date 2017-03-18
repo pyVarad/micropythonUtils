@@ -1,14 +1,15 @@
+"""Temperature sensor."""
 import machine
 import time
-import ubinascii
 import webrepl
+import ubinascii
+from temperatureSensor import temperatureAndHumidity
 
 from umqtt.simple import MQTTClient
 
-# These defaults are overwritten with the contents of /config.json by load_config()
 CONFIG = {
-    "broker": "192.168.5.3",
-    "sensor_pin": 4, 
+    "broker": "192.168.5.7",
+    "sensor_pin": 4,
     "client_id": b"esp8266_" + ubinascii.hexlify(machine.unique_id()),
     "topic": b"home",
 }
@@ -16,11 +17,15 @@ CONFIG = {
 client = None
 sensor_pin = None
 
+
 def setup_pins():
+    """Set the pins from which the data will be fetched."""
     global sensor_pin
     sensor_pin = machine.Pin(CONFIG['sensor_pin'], machine.Pin.IN)
 
+
 def load_config():
+    """Get the configurations from config.json."""
     import ujson as json
     try:
         with open("/config.json") as f:
@@ -32,7 +37,9 @@ def load_config():
         CONFIG.update(config)
         print("Loaded config from /config.json")
 
+
 def save_config():
+    """Save the config json for the first time."""
     import ujson as json
     try:
         with open("/config.json", "w") as f:
@@ -40,21 +47,26 @@ def save_config():
     except OSError:
         print("Couldn't save /config.json")
 
+
 def main():
+    """Main program starts here."""
     client = MQTTClient(CONFIG['client_id'], CONFIG['broker'])
     client.connect()
+    temp, humidity = temperatureAndHumidity()
     print("Connected to {}".format(CONFIG['broker']))
     while True:
         data = sensor_pin.value()
-        client.publish('{}/{}'.format(CONFIG['topic'],
-                                          CONFIG['client_id']),
-                                          bytes(str(data), 'utf-8'))
+        client.publish(
+            '{}/{}'.format(
+                        CONFIG['topic'],
+                        CONFIG['client_id']
+                        ), bytes(str(data), 'utf-8')
+                    )
         print('Sensor state: {}'.format(data))
         time.sleep(5)
+
 
 if __name__ == '__main__':
     load_config()
     setup_pins()
     main()
-
-
